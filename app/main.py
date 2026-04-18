@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 
 from app.config import settings
 from app.db.database import get_db_connection
@@ -7,6 +7,12 @@ from app.services.ar_analytics import (
     get_followup_priority_list,
     get_overdue_invoices,
 )
+from app.tools.ar_tools import (
+    tool_get_customer_risk_summary,
+    tool_get_followup_priority_list,
+    tool_get_overdue_invoices,
+)
+from app.tools.registry import list_tools
 
 
 app = FastAPI(
@@ -84,3 +90,32 @@ def followup_priority(limit: int = 5) -> dict[str, object]:
         "count": len(results),
         "items": results,
     }
+
+
+@app.get("/tools")
+def tools_list() -> dict[str, object]:
+    return {
+        "count": len(list_tools()),
+        "items": list_tools(),
+    }
+
+
+@app.get("/tools/get_overdue_invoices")
+def run_tool_get_overdue_invoices(region: str | None = None) -> dict[str, object]:
+    return tool_get_overdue_invoices(region=region)
+
+
+@app.get("/tools/get_customer_risk_summary")
+def run_tool_get_customer_risk_summary(customer_id: int = Query(...)) -> dict[str, object]:
+    try:
+        return tool_get_customer_risk_summary(customer_id=customer_id)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+
+
+@app.get("/tools/get_followup_priority_list")
+def run_tool_get_followup_priority_list(limit: int = 5) -> dict[str, object]:
+    try:
+        return tool_get_followup_priority_list(limit=limit)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
