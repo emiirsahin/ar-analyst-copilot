@@ -20,6 +20,9 @@ def get_overdue_invoices(region: str | None = None) -> dict:
     """
     Use this tool when you need a list of overdue accounts receivable invoices.
 
+    Use this tool FIRST when the user asks for invoice-level data or filtering (e.g., by region).
+    Prefer this over summary tools when specific invoice records are requested.
+
     This tool is useful for:
     - finding overdue invoices overall
     - filtering overdue invoices by region
@@ -75,6 +78,8 @@ def get_followup_priority_list(limit: int = 5) -> dict:
     """
     Use this tool to identify which customers most urgently need collections follow-up.
 
+    Prefer this tool over get_customer_risk_summary when selecting multiple customers.
+
     This tool is useful for:
     - ranking customers by urgency
     - deciding who should be contacted first
@@ -105,6 +110,9 @@ def get_followup_priority_list(limit: int = 5) -> dict:
 def get_region_risk_summary() -> dict:
     """
     Use this tool when the user asks for a regional or aggregate view of overdue risk.
+    
+    Do NOT use this tool if the user is asking for invoice-level details or filtering.
+    Use get_overdue_invoices instead for detailed invoice data.
 
     This tool is useful for:
     - comparing regions
