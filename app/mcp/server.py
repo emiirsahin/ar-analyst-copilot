@@ -3,12 +3,12 @@ from __future__ import annotations
 from mcp.server.fastmcp import FastMCP
 
 from app.tools.ar_tools import (
+    tool_draft_collection_email,
+    tool_get_customer_payment_behavior,
     tool_get_customer_risk_summary,
     tool_get_followup_priority_list,
     tool_get_overdue_invoices,
     tool_get_region_risk_summary,
-    tool_get_customer_payment_behavior,
-    tool_draft_collection_email,
 )
 
 
@@ -18,7 +18,25 @@ mcp = FastMCP("AR Analyst Copilot MCP Server")
 @mcp.tool()
 def get_overdue_invoices(region: str | None = None) -> dict:
     """
-    Return overdue accounts receivable invoices, optionally filtered by region.
+    Use this tool when you need a list of overdue accounts receivable invoices.
+
+    This tool is useful for:
+    - finding overdue invoices overall
+    - filtering overdue invoices by region
+    - checking specific overdue amounts and invoice-level details
+
+    Returns structured invoice records including:
+    - invoice id
+    - customer id
+    - customer name
+    - region
+    - amount
+    - due date
+    - days overdue
+    - dispute flag
+
+    If you need a customer-level risk explanation, use get_customer_risk_summary.
+    If you need a regional summary instead of invoice-level detail, use get_region_risk_summary.
     """
     return tool_get_overdue_invoices(region=region)
 
@@ -26,7 +44,28 @@ def get_overdue_invoices(region: str | None = None) -> dict:
 @mcp.tool()
 def get_customer_risk_summary(customer_id: int) -> dict:
     """
-    Return a risk summary for a single customer.
+    Use this tool when you need a detailed risk assessment for one specific customer.
+
+    This tool is useful for:
+    - explaining why a customer is risky
+    - reviewing overdue exposure for one customer
+    - checking whether disputes, payment delays, and recent interactions contribute to risk
+
+    Returns:
+    - customer identity and profile fields
+    - overdue invoice count
+    - overdue amount
+    - dispute count
+    - average payment delay
+    - recent interaction count
+    - calculated risk score
+    - calculated risk level
+    - human-readable reasons for the risk assessment
+
+    Use this after identifying a customer of interest through get_followup_priority_list
+    or get_region_risk_summary.
+
+    Do not use this to compare many customers at once.
     """
     return tool_get_customer_risk_summary(customer_id=customer_id)
 
@@ -34,28 +73,103 @@ def get_customer_risk_summary(customer_id: int) -> dict:
 @mcp.tool()
 def get_followup_priority_list(limit: int = 5) -> dict:
     """
-    Return a ranked list of customers who most need collections follow-up.
+    Use this tool to identify which customers most urgently need collections follow-up.
+
+    This tool is useful for:
+    - ranking customers by urgency
+    - deciding who should be contacted first
+    - finding high-priority customers before drilling into details
+
+    Returns a ranked list of customers with:
+    - customer id
+    - customer name
+    - region
+    - calculated risk score
+    - calculated risk level
+    - overdue amount
+    - overdue invoice count
+    - top reasons for prioritization
+
+    Use this as a starting point when the user asks:
+    - who needs immediate attention
+    - who should collections contact first
+    - which customers are highest priority
+
+    After this tool, use get_customer_risk_summary for detail or
+    draft_collection_email to generate an action.
     """
     return tool_get_followup_priority_list(limit=limit)
 
 
 @mcp.tool()
 def get_region_risk_summary() -> dict:
-    """Return aggregated overdue risk metrics by region."""
-    return tool_get_region_risk_summary()
+    """
+    Use this tool when the user asks for a regional or aggregate view of overdue risk.
 
+    This tool is useful for:
+    - comparing regions
+    - identifying which region has the greatest overdue exposure
+    - starting a drill-down workflow from summary to customer detail
+
+    Returns a list of region summaries with:
+    - region
+    - overdue invoice count
+    - total overdue amount
+
+    Use this before get_followup_priority_list or get_customer_risk_summary
+    when the user begins with a regional question.
+
+    This is a summary tool, not a detailed customer tool.
+    """
+    return tool_get_region_risk_summary()
 
 
 @mcp.tool()
 def get_customer_payment_behavior(customer_id: int) -> dict:
-    """Analyze how a customer pays invoices (delays, ratios)."""
-    return tool_get_customer_payment_behavior(customer_id)
+    """
+    Use this tool when you need to explain how a customer tends to pay invoices.
 
+    This tool is useful for:
+    - explaining whether a customer regularly pays late
+    - supporting a risk explanation with payment behavior evidence
+    - checking whether poor payment discipline is driving collections concern
+
+    Returns:
+    - customer id
+    - average payment delay in days
+    - number of late payments
+    - total payments
+    - late payment ratio
+
+    Use this after selecting a specific customer, typically from
+    get_followup_priority_list or get_customer_risk_summary.
+
+    Do not use this for region-wide comparisons.
+    """
+    return tool_get_customer_payment_behavior(customer_id)
 
 
 @mcp.tool()
 def draft_collection_email(customer_id: int) -> dict:
-    """Generate a draft follow-up email for a customer."""
+    """
+    Use this tool when the user wants an action-oriented follow-up for a specific customer.
+
+    This tool is useful for:
+    - drafting a collections email
+    - preparing a follow-up message after analyzing a risky customer
+    - turning analysis into a concrete next step
+
+    Returns:
+    - customer id
+    - email subject
+    - email body
+
+    This tool should usually be used after identifying a customer through
+    get_followup_priority_list, get_customer_risk_summary, or
+    get_customer_payment_behavior.
+
+    Use this tool for drafting, not for sending.
+    """
     return tool_draft_collection_email(customer_id)
 
 
