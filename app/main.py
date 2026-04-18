@@ -1,7 +1,12 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 
 from app.config import settings
 from app.db.database import get_db_connection
+from app.services.ar_analytics import (
+    get_customer_risk_summary,
+    get_followup_priority_list,
+    get_overdue_invoices,
+)
 
 
 app = FastAPI(
@@ -52,4 +57,30 @@ def db_summary() -> dict[str, int]:
         "invoices": invoice_count,
         "payments": payment_count,
         "interactions": interaction_count,
+    }
+
+
+@app.get("/analytics/overdue-invoices")
+def overdue_invoices() -> dict[str, object]:
+    results = get_overdue_invoices()
+    return {
+        "count": len(results),
+        "items": results,
+    }
+
+
+@app.get("/analytics/customer-risk/{customer_id}")
+def customer_risk(customer_id: int) -> dict[str, object]:
+    try:
+        return get_customer_risk_summary(customer_id)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+
+
+@app.get("/analytics/followup-priority")
+def followup_priority(limit: int = 5) -> dict[str, object]:
+    results = get_followup_priority_list(limit=limit)
+    return {
+        "count": len(results),
+        "items": results,
     }
