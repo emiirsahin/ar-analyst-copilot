@@ -35,4 +35,4 @@ dist/
 *.sqlite3
 
 # Logs
-*.log
+logs/

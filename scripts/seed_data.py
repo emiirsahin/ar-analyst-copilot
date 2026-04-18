@@ -1,13 +1,11 @@
 from __future__ import annotations
 
+import argparse
 import random
 from datetime import date, timedelta
 
 from app.db.database import get_db_connection
 from app.db.schema import initialize_database
-
-
-random.seed(42)
 
 
 CUSTOMERS = [
@@ -183,12 +181,24 @@ def seed_interactions() -> None:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Seed the AR Analyst database.")
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Random seed for reproducible data generation (default: 42).",
+    )
+    args = parser.parse_args()
+
+    random.seed(args.seed)
+
     initialize_database()
     reset_tables()
     seed_customers()
     seed_invoices_and_payments()
     seed_interactions()
-    print("Database seeded successfully.")
+
+    print(f"Database seeded successfully with seed {args.seed}.")
 
 
 if __name__ == "__main__":

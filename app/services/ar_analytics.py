@@ -217,3 +217,104 @@ def get_followup_priority_list(limit: int = 5) -> list[dict[str, Any]]:
     )
 
     return ranked_customers[:limit]
+
+def get_region_risk_summary() -> list[dict[str, Any]]:
+    with get_db_connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT
+                customers.region AS region,
+                COUNT(invoices.id) AS invoice_count,
+                COALESCE(SUM(invoices.amount), 0) AS total_overdue
+            FROM invoices
+            JOIN customers ON invoices.customer_id = customers.id
+            WHERE invoices.status IN ('open', 'overdue')
+              AND invoices.due_date < date('now')
+            GROUP BY customers.region
+            ORDER BY total_overdue DESC
+            """
+        ).fetchall()
+
+    results = []
+    for row in rows:
+        results.append(
+            {
+                "region": row["region"],
+                "overdue_invoice_count": row["invoice_count"],
+                "total_overdue_amount": round(float(row["total_overdue"]), 2),
+            }
+        )
+
+    return results
+
+def get_customer_payment_behavior(customer_id: int) -> dict[str, Any]:
+    with get_db_connection() as connection:
+        avg_delay = connection.execute(
+            """
+            SELECT COALESCE(AVG(julianday(payments.payment_date) - julianday(invoices.due_date)), 0)
+            FROM payments
+            JOIN invoices ON payments.invoice_id = invoices.id
+            WHERE payments.customer_id = ?
+            """,
+            (customer_id,),
+        ).fetchone()[0]
+
+        late_count = connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM payments
+            JOIN invoices ON payments.invoice_id = invoices.id
+            WHERE payments.customer_id = ?
+              AND julianday(payments.payment_date) > julianday(invoices.due_date)
+            """,
+            (customer_id,),
+        ).fetchone()[0]
+
+        total_payments = connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM payments
+            WHERE customer_id = ?
+            """,
+            (customer_id,),
+        ).fetchone()[0]
+
+    return {
+        "customer_id": customer_id,
+        "average_delay_days": round(float(avg_delay), 2),
+        "late_payments": late_count,
+        "total_payments": total_payments,
+        "late_ratio": round(late_count / total_payments, 2) if total_payments else 0,
+    }
+
+def draft_collection_email(customer_id: int) -> dict[str, Any]:
+    summary = get_customer_risk_summary(customer_id)
+
+    name = summary["customer_name"]
+    risk = summary["calculated_risk"]["level"]
+    reasons = summary["calculated_risk"]["reasons"]
+
+    subject = f"Follow-up on outstanding balance - {name}"
+
+    body = f"""
+Dear {name},
+
+We hope you are doing well.
+
+We wanted to follow up regarding your account, as we have identified some outstanding items that require attention.
+
+Key points:
+- Risk level: {risk}
+- Reasons: {", ".join(reasons)}
+
+We would appreciate your prompt attention to these matters. Please let us know if there are any issues we can help resolve.
+
+Best regards,
+Accounts Receivable Team
+""".strip()
+
+    return {
+        "customer_id": customer_id,
+        "subject": subject,
+        "body": body,
+    }
